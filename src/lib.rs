@@ -58,7 +58,13 @@ impl Piece {
         );
     }
 
-    pub fn translate(&mut self, x: i32, y: i32) {
+    pub fn translate(&mut self, x: i32, y: i32, top_left_pos: Vec2, bottom_right_pos: Vec2) {
+        let new_centre_of_rotation_coord = Vec2::new(self.position.x + ((self.centre_of_rotation[0] as i32 + x) * 2 + 1) as f32 * self.circle_radius, self.position.y +  ((self.centre_of_rotation[1] as i32 + y) * 2 + 1) as f32 * self.circle_radius);
+
+        if new_centre_of_rotation_coord.x < top_left_pos.x || new_centre_of_rotation_coord.x > bottom_right_pos.x || new_centre_of_rotation_coord.y < top_left_pos.y || new_centre_of_rotation_coord.y > bottom_right_pos.y {
+            return;
+        }
+
         self.position.x += x as f32 * self.circle_radius * 2.0;
         self.position.y += y as f32 * self.circle_radius * 2.0;
     }

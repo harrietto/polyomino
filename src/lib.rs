@@ -1,5 +1,7 @@
 use macroquad::prelude::*;
 
+pub const BOARD_DIMENSIONS: [u32; 2] = [11, 5];
+
 pub struct Piece {
     circle_positions: Vec<[u32; 2]>,
     centre_of_rotation: [u32; 2],
@@ -83,7 +85,7 @@ impl Piece {
         self.rotation += if clockwise { 90.0 } else { -90.0 };
     }
 
-    pub fn lock(&mut self) {
+    pub fn lock(&mut self, spaces: &mut [[Option<&Piece>; BOARD_DIMENSIONS[0] as usize]; BOARD_DIMENSIONS[1] as usize]) {
         self.locked = true;
     }
 }

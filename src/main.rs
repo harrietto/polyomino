@@ -17,28 +17,34 @@ async fn main() {
     let circle_radius = 20.0;
     let board_size = Vec2::new((board_dimensions[0]) as f32 * circle_radius * 2.0, (board_dimensions[1]) as f32 * circle_radius * 2.0);
     let outline_size = Vec2::new((board_dimensions[0] + 2) as f32 * circle_radius * 2.0, (board_dimensions[1] + 2) as f32 * circle_radius * 2.0);
+    let mut cursor = polyomino::Cursor::new([0, 0], circle_radius, Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), Vec2::new(screen_width() / 2.0 + board_size.x / 2.0, screen_height() / 2.0 + board_size.y / 2.0));
     let mut test = polyomino::Piece::new(vec![[0, 0], [0, 1], [1, 0]], [0, 0], circle_radius, [0, 0], Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), RED);
     test.setup_texture();
 
     loop {
         clear_background(BLACK);
 
-        draw_rectangle_lines(screen_width() / 2.0 - outline_size.x / 2.0 - 5.0, screen_height() / 2.0 - outline_size.y / 2.0 - 5.0, outline_size.x + 10.0, outline_size.y + 10.0, 10.0, GRAY);
+        draw_rectangle_lines(screen_width() / 2.0 - outline_size.x / 2.0 - 5.0, screen_height() / 2.0 - outline_size.y / 2.0 - 5.0, outline_size.x + 10.0, outline_size.y + 10.0, 10.0, Color::from_hex(0x4d4d4d));
 
         polyomino::draw_circle_grid(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0, board_dimensions[1], board_dimensions[0], circle_radius, Color::from_hex(0x2b2b2b));
 
         test.draw();
+        cursor.draw();
 
         if is_key_pressed(KeyCode::Right) {
+            cursor.translate([1, 0]);
             test.translate(1, 0, Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), Vec2::new(screen_width() / 2.0 + board_size.x / 2.0, screen_height() / 2.0 + board_size.y / 2.0));
         }
         if is_key_pressed(KeyCode::Left) {
+            cursor.translate([-1, 0]);
             test.translate(-1, 0, Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), Vec2::new(screen_width() / 2.0 + board_size.x / 2.0, screen_height() / 2.0 + board_size.y / 2.0));
         }
         if is_key_pressed(KeyCode::Up) {
+            cursor.translate([0, -1]);
             test.translate(0, -1, Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), Vec2::new(screen_width() / 2.0 + board_size.x / 2.0, screen_height() / 2.0 + board_size.y / 2.0));
         }
         if is_key_pressed(KeyCode::Down) {
+            cursor.translate([0, 1]);
             test.translate(0, 1, Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0), Vec2::new(screen_width() / 2.0 + board_size.x / 2.0, screen_height() / 2.0 + board_size.y / 2.0));
         }
         if is_key_pressed(KeyCode::X) {
@@ -46,6 +52,9 @@ async fn main() {
         }
         if is_key_pressed(KeyCode::Z) {
             test.rotate(false);
+        }
+        if is_key_pressed(KeyCode::Enter) {
+            test.lock();
         }
 
         next_frame().await

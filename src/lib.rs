@@ -2,23 +2,99 @@ use macroquad::prelude::*;
 
 pub const BOARD_DIMENSIONS: [u32; 2] = [11, 5];
 
-pub struct Piece {
+pub struct PieceIcon {
     circle_positions: Vec<[u32; 2]>,
+    circle_radius: f32,
+    dimensions: [u32; 2],
+    colour: macroquad::color::Color,
+    selected: bool,
+    position: macroquad::math::Vec2,
+    render_target: macroquad::texture::RenderTarget,
+    render_camera: macroquad::camera::Camera2D,
+}
+
+impl PieceIcon {
+    pub fn new(piece: &Piece,circle_radius: f32, position: macroquad::math::Vec2) -> PieceIcon {
+        let render_target = render_target(64, 64);
+        render_target.texture.set_filter(FilterMode::Linear);
+        let render_camera = Camera2D {
+            render_target: Some(render_target.clone()),
+            ..Camera2D::from_display_rect(Rect::new(0.0, 0.0, 64.0, 64.0))
+        };
+        let mut dimensions = [0, 0];
+        for pos in &piece.circle_positions {
+            if pos[0] + 1 > dimensions[0] {
+                dimensions[0] = pos[0] + 1;
+            }
+            if pos[1] + 1 > dimensions[1] {
+                dimensions[1] = pos[1] + 1;
+            }
+        }
+
+        PieceIcon {
+            circle_positions: piece.circle_positions.clone(),
+            circle_radius,
+            dimensions,
+            colour: piece.colour,
+            selected: false,
+            position,
+            render_target,
+            render_camera,
+        }
+    }
+
+    pub fn setup_texture(&self) {
+        set_camera(&self.render_camera);
+
+        for pos in &self.circle_positions {
+            draw_circle((pos[0] as f32 + 0.5) * self.circle_radius * 2.0, self.render_target.texture.height() - (pos[1] as f32 + 0.5) * self.circle_radius * 2.0, self.circle_radius, self.colour);
+        }
+
+        set_default_camera();
+    }
+
+    pub fn select(&mut self) {
+        self.selected = true;
+    }
+
+    pub fn deselect(&mut self) {
+        self.selected = false;
+    }
+    
+    pub fn draw(&self, related_piece: &Piece) {
+        draw_texture_ex(
+            &self.render_target.texture,
+            self.position.x,
+            self.position.y,
+            if !related_piece.locked { self.colour } else { Color::from_hex(0x505050) },
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(64.0, 64.0)),
+                ..Default::default()
+            }
+        );
+        if self.selected {
+            draw_rectangle_lines(self.position.x - 2.0, self.position.y - 2.0, self.dimensions[0] as f32 * self.circle_radius * 2.0 + 4.0, self.dimensions[1] as f32 * self.circle_radius * 2.0 + 4.0, 4.0, WHITE);
+        }
+    }
+}
+
+pub struct Piece {
+    pub circle_positions: Vec<[u32; 2]>,
     centre_of_rotation: [i32; 2],
     circle_radius: f32,
     top_left_pos: Vec2,
     position: [i32; 2],
     rotation: i32,
-    locked: bool,
-    colour: macroquad::color::Color,
+    visible: bool,
+    pub locked: bool,
+    pub colour: macroquad::color::Color,
     render_target: macroquad::texture::RenderTarget,
     render_camera: macroquad::camera::Camera2D,
     index: usize,
 }
 
 impl Piece {
-    pub fn new(index: usize, circle_positions: Vec<[u32; 2]>, centre_of_rotation: [i32; 2], circle_radius: f32, grid_pos: [i32; 2], top_left_pos: Vec2, colour: macroquad::color::Color) -> Piece {
-        let position = [grid_pos[0] - centre_of_rotation[0], grid_pos[1] - centre_of_rotation[1]];
+    pub fn new(index: usize, circle_positions: Vec<[u32; 2]>, centre_of_rotation: [i32; 2], circle_radius: f32, top_left_pos: Vec2, colour: macroquad::color::Color) -> Piece {
         let render_target = render_target(256, 256);
         render_target.texture.set_filter(FilterMode::Linear);
         let render_camera = Camera2D {
@@ -31,9 +107,10 @@ impl Piece {
             centre_of_rotation,
             circle_radius,
             top_left_pos,
-            position,
+            position: [0, 0],
             rotation: 0,
             colour,
+            visible: false,
             locked: false,
             render_target,
             render_camera,
@@ -52,11 +129,14 @@ impl Piece {
     }
 
     pub fn draw(&self) {
+        if !self.visible {
+            return;
+        }
         draw_texture_ex(
             &self.render_target.texture,
             self.top_left_pos.x + self.position[0] as f32 * self.circle_radius * 2.0,
             self.top_left_pos.y + self.position[1] as f32 * self.circle_radius * 2.0,
-            if self.locked { self.colour } else { Color::from_hex(0x808080) },
+            if self.locked { self.colour } else { Color::from_hex(0x505050) },
             DrawTextureParams {
                 dest_size: Some(Vec2::new(256.0, 256.0)),
                 rotation: (self.rotation as f32).to_radians(),
@@ -83,6 +163,14 @@ impl Piece {
         [self.position[0] + self.centre_of_rotation[0], self.position[1] + self.centre_of_rotation[1]]
     }
 
+    pub fn set_pos(&mut self, pos: [i32; 2]) {
+        if self.locked == true {
+            return;
+        }
+
+        self.position = [pos[0] - self.centre_of_rotation[0], pos[1] - self.centre_of_rotation[1]];
+    }
+
     pub fn rotate(&mut self, clockwise: bool) {
         if self.locked == true {
             return;
@@ -94,14 +182,26 @@ impl Piece {
     fn get_rotated_pos(&self, pos: &[u32; 2]) -> [i32; 2] {
         match self.rotation % 360 {
             0 => [self.position[0] + pos[0] as i32, self.position[1] + pos[1] as i32],
-            90 | -270 => [self.position[0] - pos[1] as i32, self.position[1] + pos[0] as i32],
-            180 | -180 => [self.position[0] - pos[0] as i32, self.position[1] - pos[1] as i32],
-            270 | -90 => [self.position[0] + pos[1] as i32, self.position[1] - pos[0] as i32],
+            90 | -270 => [(self.position[0] + self.centre_of_rotation[0] as i32) - (pos[1] as i32 - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) + (pos[0] as i32 - self.centre_of_rotation[0] as i32)],
+            180 | -180 => [(self.position[0] as i32 + self.centre_of_rotation[0] as i32) - (pos[0] as i32 - self.centre_of_rotation[0] as i32), (self.position[1] as i32 + self.centre_of_rotation[1] as i32) - (pos[1] as i32 - self.centre_of_rotation[1] as i32)],
+            270 | -90 => [(self.position[0] + self.centre_of_rotation[0] as i32) + (pos[1] as i32 - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) - (pos[0] as i32 - self.centre_of_rotation[0] as i32)],
             _ => panic!("Rotation not a multiple of 90 degrees"),
         }
     }
 
+    pub fn select(&mut self) {
+        self.visible = true;
+    }
+
+    pub fn deselect(&mut self) {
+        self.visible = false;
+    }
+
     pub fn lock(&mut self, spaces: &mut [[Option<usize>; BOARD_DIMENSIONS[0] as usize]; BOARD_DIMENSIONS[1] as usize]) -> Result<(), ()> {
+        if !self.visible {
+            return Err(());
+        }
+        
         for pos in &self.circle_positions {
             let circle_pos = self.get_rotated_pos(&pos);
 

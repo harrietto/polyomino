@@ -5,6 +5,7 @@ pub const BOARD_DIMENSIONS: [u32; 2] = [11, 5];
 pub struct PieceIcon {
     circle_positions: Vec<[u32; 2]>,
     circle_radius: f32,
+    top_left: [u32; 2],
     dimensions: [u32; 2],
     colour: macroquad::color::Color,
     selected: bool,
@@ -15,13 +16,14 @@ pub struct PieceIcon {
 
 impl PieceIcon {
     pub fn new(piece: &Piece,circle_radius: f32, position: macroquad::math::Vec2) -> PieceIcon {
-        let render_target = render_target(64, 64);
+        let render_target = render_target(128, 128);
         render_target.texture.set_filter(FilterMode::Linear);
         let render_camera = Camera2D {
             render_target: Some(render_target.clone()),
-            ..Camera2D::from_display_rect(Rect::new(0.0, 0.0, 64.0, 64.0))
+            ..Camera2D::from_display_rect(Rect::new(0.0, 0.0, 128.0, 128.0))
         };
         let mut dimensions = [0, 0];
+        let mut top_left = [u32::MAX, u32::MAX];
         for pos in &piece.circle_positions {
             if pos[0] + 1 > dimensions[0] {
                 dimensions[0] = pos[0] + 1;
@@ -29,11 +31,18 @@ impl PieceIcon {
             if pos[1] + 1 > dimensions[1] {
                 dimensions[1] = pos[1] + 1;
             }
+            if pos[0] < top_left[0] {
+                top_left[0] = pos[0];
+            }
+            if pos[1] < top_left[1] {
+                top_left[1] = pos[1];
+            }
         }
 
         PieceIcon {
             circle_positions: piece.circle_positions.clone(),
             circle_radius,
+            top_left,
             dimensions,
             colour: piece.colour,
             selected: false,
@@ -66,14 +75,21 @@ impl PieceIcon {
             &self.render_target.texture,
             self.position.x,
             self.position.y,
-            if !related_piece.locked { self.colour } else { Color::from_hex(0x505050) },
+            if !related_piece.locked { WHITE } else { Color::from_hex(0x505050) },
             DrawTextureParams {
-                dest_size: Some(Vec2::new(64.0, 64.0)),
+                dest_size: Some(Vec2::new(128.0, 128.0)),
                 ..Default::default()
             }
         );
         if self.selected {
-            draw_rectangle_lines(self.position.x - 2.0, self.position.y - 2.0, self.dimensions[0] as f32 * self.circle_radius * 2.0 + 4.0, self.dimensions[1] as f32 * self.circle_radius * 2.0 + 4.0, 4.0, WHITE);
+            draw_rectangle_lines(
+                self.position.x + self.top_left[0] as f32 * self.circle_radius * 2.0 - 1.5,
+                self.position.y + self.top_left[1] as f32 * self.circle_radius * 2.0 - 1.5,
+                self.dimensions[0] as f32 * self.circle_radius * 2.0 - self.top_left[0] as f32 * self.circle_radius * 2.0 + 3.0,
+                self.dimensions[1] as f32 * self.circle_radius * 2.0 - self.top_left[1] as f32 * self.circle_radius * 2.0 + 3.0,
+                3.0,
+                WHITE
+            );
         }
     }
 }
@@ -85,6 +101,7 @@ pub struct Piece {
     top_left_pos: Vec2,
     position: [i32; 2],
     rotation: i32,
+    flipped: [bool; 2],
     visible: bool,
     pub locked: bool,
     pub colour: macroquad::color::Color,
@@ -109,6 +126,7 @@ impl Piece {
             top_left_pos,
             position: [0, 0],
             rotation: 0,
+            flipped: [false, false],
             colour,
             visible: false,
             locked: false,
@@ -134,12 +152,14 @@ impl Piece {
         }
         draw_texture_ex(
             &self.render_target.texture,
-            self.top_left_pos.x + self.position[0] as f32 * self.circle_radius * 2.0,
-            self.top_left_pos.y + self.position[1] as f32 * self.circle_radius * 2.0,
-            if self.locked { self.colour } else { Color::from_hex(0x505050) },
+            self.top_left_pos.x + self.position[0] as f32 * self.circle_radius * 2.0 - if self.flipped[0] {256.0 - self.circle_radius * 2.0 * (self.centre_of_rotation[0] * 2 + 1) as f32} else {0.0},
+            self.top_left_pos.y + self.position[1] as f32 * self.circle_radius * 2.0 - if self.flipped[1] {256.0 - self.circle_radius * 2.0 * (self.centre_of_rotation[1] * 2 + 1) as f32} else {0.0},
+            if self.locked { WHITE } else { Color::from_rgba(!0, !0, !0, 150) },
             DrawTextureParams {
                 dest_size: Some(Vec2::new(256.0, 256.0)),
                 rotation: (self.rotation as f32).to_radians(),
+                flip_x: self.flipped[0],
+                flip_y: self.flipped[1],
                 pivot: Some(self.top_left_pos + Vec2::new(((self.position[0] + self.centre_of_rotation[0]) * 2 + 1) as f32 * self.circle_radius, ((self.position[1] + self.centre_of_rotation[1]) * 2 + 1) as f32 * self.circle_radius)),
                 ..Default::default()
             }
@@ -179,12 +199,39 @@ impl Piece {
         self.rotation += if clockwise { 90 } else { -90 };
     }
 
-    fn get_rotated_pos(&self, pos: &[u32; 2]) -> [i32; 2] {
+    pub fn reset_rotation_and_flipping(&mut self) {
+        if self.locked == true {
+            return;
+        }
+
+        self.rotation = 0;
+        self.flipped = [false, false];
+    }
+
+    pub fn flip(&mut self) {
+        if self.locked == true {
+            return;
+        }
+
+        if self.rotation % 360 == 0 || self.rotation % 360 == 180 || self.rotation % 360 == -180 {
+            self.flipped[0] = !self.flipped[0];
+            return;
+        } else {
+            self.flipped[1] = !self.flipped[1];
+            return;
+        }
+    }
+
+    fn flip_rotate_transform(&self, pos: &[u32; 2]) -> [i32; 2] {
+        let flipped_pos = [
+            if self.flipped[0] { self.centre_of_rotation[0] * 2 - pos[0] as i32} else { pos[0] as i32 },
+            if self.flipped[1] { self.centre_of_rotation[1] * 2 - pos[1] as i32} else { pos[1] as i32 },
+        ];
         match self.rotation % 360 {
-            0 => [self.position[0] + pos[0] as i32, self.position[1] + pos[1] as i32],
-            90 | -270 => [(self.position[0] + self.centre_of_rotation[0] as i32) - (pos[1] as i32 - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) + (pos[0] as i32 - self.centre_of_rotation[0] as i32)],
-            180 | -180 => [(self.position[0] as i32 + self.centre_of_rotation[0] as i32) - (pos[0] as i32 - self.centre_of_rotation[0] as i32), (self.position[1] as i32 + self.centre_of_rotation[1] as i32) - (pos[1] as i32 - self.centre_of_rotation[1] as i32)],
-            270 | -90 => [(self.position[0] + self.centre_of_rotation[0] as i32) + (pos[1] as i32 - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) - (pos[0] as i32 - self.centre_of_rotation[0] as i32)],
+            0 => [self.position[0] + flipped_pos[0], self.position[1] + flipped_pos[1]],
+            90 | -270 => [(self.position[0] + self.centre_of_rotation[0] as i32) - (flipped_pos[1] - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) + (flipped_pos[0] - self.centre_of_rotation[0] as i32)],
+            180 | -180 => [(self.position[0] as i32 + self.centre_of_rotation[0] as i32) - (flipped_pos[0] - self.centre_of_rotation[0] as i32), (self.position[1] as i32 + self.centre_of_rotation[1] as i32) - (flipped_pos[1] - self.centre_of_rotation[1] as i32)],
+            270 | -90 => [(self.position[0] + self.centre_of_rotation[0] as i32) + (flipped_pos[1] - self.centre_of_rotation[1] as i32), (self.position[1] + self.centre_of_rotation[1] as i32) - (flipped_pos[0] - self.centre_of_rotation[0] as i32)],
             _ => panic!("Rotation not a multiple of 90 degrees"),
         }
     }
@@ -203,7 +250,7 @@ impl Piece {
         }
         
         for pos in &self.circle_positions {
-            let circle_pos = self.get_rotated_pos(&pos);
+            let circle_pos = self.flip_rotate_transform(&pos);
 
             if circle_pos[0] < 0 || circle_pos[1] < 0 || circle_pos[0] > BOARD_DIMENSIONS[0] as i32 - 1 || circle_pos[1] > BOARD_DIMENSIONS[1] as i32 - 1 || spaces[circle_pos[1] as usize][circle_pos[0] as usize] != None {
                 return Err(());
@@ -211,7 +258,7 @@ impl Piece {
         }
 
         for pos in &self.circle_positions {
-            let circle_pos = self.get_rotated_pos(&pos);
+            let circle_pos = self.flip_rotate_transform(&pos);
 
             spaces[circle_pos[1] as usize][circle_pos[0] as usize] = Some(self.index);
         }
@@ -223,7 +270,7 @@ impl Piece {
 
     pub fn unlock(&mut self, spaces: &mut [[Option<usize>; BOARD_DIMENSIONS[0] as usize]; BOARD_DIMENSIONS[1] as usize]) {
         for pos in &self.circle_positions {
-            let circle_pos = self.get_rotated_pos(&pos);
+            let circle_pos = self.flip_rotate_transform(&pos);
 
             spaces[circle_pos[1] as usize][circle_pos[0] as usize] = None;
         }

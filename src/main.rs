@@ -4,30 +4,57 @@ use polyomino;
 fn window_conf() -> Conf {
     Conf {
         window_title: "Polyomino".to_owned(),
-        window_width: 1200,
+        window_width: 800,
         window_height: 600,
         window_resizable: false,
         ..Default::default()
     }
 }
 
+fn check_complete(spaces: &[[Option<usize>; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize]) -> bool {
+    for row in spaces {
+        for space in row {
+            if space == &None {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 #[macroquad::main(window_conf)]
 async fn main() {
     let circle_radius = 20.0;
     let board_size = Vec2::new((polyomino::BOARD_DIMENSIONS[0]) as f32 * circle_radius * 2.0, (polyomino::BOARD_DIMENSIONS[1]) as f32 * circle_radius * 2.0);
-    let outline_size = Vec2::new((polyomino::BOARD_DIMENSIONS[0] + 2) as f32 * circle_radius * 2.0, (polyomino::BOARD_DIMENSIONS[1] + 2) as f32 * circle_radius * 2.0);
-    let top_left_pos = Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0);
+    let top_left_pos = Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0 - 100.0);
 
     let mut cursor = polyomino::Cursor::new([0, 0], circle_radius, top_left_pos);
     
     let mut pieces = [
-        polyomino::Piece::new(0, vec![[0, 1], [0, 2], [1, 1], [1, 0]], [0, 1], circle_radius, top_left_pos, RED),
-        polyomino::Piece::new(1, vec![[0, 0], [0, 1], [0, 2], [1, 0]], [0, 0], circle_radius, top_left_pos, BLUE),
+        polyomino::Piece::new(0, vec![[0, 1], [1, 1], [2, 1], [0, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x7c8ee6)),
+        polyomino::Piece::new(1, vec![[1, 1], [2, 1], [0, 0], [1, 0]], [1, 0], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf26a66)),
+        polyomino::Piece::new(2, vec![[0, 1], [1, 1], [2, 1], [0, 0], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x72d6ae)),
+        polyomino::Piece::new(3, vec![[0, 2], [1, 2], [2, 2], [0, 1], [0, 0]], [0, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x36a7e3)),
+        polyomino::Piece::new(4, vec![[0, 1], [1, 1], [2, 1], [0, 0], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa8d162)),
+        polyomino::Piece::new(5, vec![[1, 2], [0, 1], [1, 1], [2, 1], [2, 1], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xed9c51)),
+        polyomino::Piece::new(6, vec![[0, 3], [0, 2], [0, 1], [1, 1], [1, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xe3a3c5)),
+        polyomino::Piece::new(7, vec![[0, 2], [1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x369c6f)),
+        polyomino::Piece::new(8, vec![[1, 3], [1, 2], [0, 1], [1, 1], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf2cf4e)),
+        polyomino::Piece::new(9, vec![[1, 2], [2, 2], [0, 1], [1, 1], [0, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa477d1)),
+        polyomino::Piece::new(10, vec![[1, 3], [2, 3], [1, 2], [1, 1], [1, 0]], [1, 3], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xb33d3d)),
+        polyomino::Piece::new(11, vec![[1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x75ccd1)),
     ];
+
     for piece in &mut pieces {
         piece.setup_texture();
     }
-    let mut piece_icons = pieces.iter().enumerate().map(|(i, piece)| polyomino::PieceIcon::new(piece,10.0, Vec2::new(10.0 + (i as f32 * 64.0), screen_height() - 124.0))).collect::<Vec<polyomino::PieceIcon>>();
+    let mut piece_icons = pieces.iter().enumerate().map(|(i, piece)|
+            if i < 6 {
+                polyomino::PieceIcon::new(piece, 10.0, Vec2::new((screen_width() - 80.0 * 6.0) / 2.0 + (i as f32 * 80.0), screen_height() - 210.0))
+            } else { 
+                polyomino::PieceIcon::new(piece, 10.0, Vec2::new((screen_width() - 80.0 * 6.0) / 2.0 + ((i - 6) as f32 * 80.0), screen_height() - 210.0 + 80.0))
+            }
+        ).collect::<Vec<polyomino::PieceIcon>>();
     for icon in &piece_icons {
         icon.setup_texture();
     }
@@ -40,13 +67,22 @@ async fn main() {
     loop {
         clear_background(BLACK);
 
-        draw_rectangle_lines(screen_width() / 2.0 - outline_size.x / 2.0 - 5.0, screen_height() / 2.0 - outline_size.y / 2.0 - 5.0, outline_size.x + 10.0, outline_size.y + 10.0, 10.0, Color::from_hex(0x4d4d4d));
+        polyomino::draw_circle_grid(top_left_pos.x, top_left_pos.y, polyomino::BOARD_DIMENSIONS[1], polyomino::BOARD_DIMENSIONS[0], circle_radius, Color::from_hex(0x2b2b2b));
 
-        polyomino::draw_circle_grid(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0, polyomino::BOARD_DIMENSIONS[1], polyomino::BOARD_DIMENSIONS[0], circle_radius, Color::from_hex(0x2b2b2b));
-
-        for piece in &pieces {
+        for (i, piece) in pieces.iter().enumerate() {
+            if Some(i) == movable_piece {
+                continue;
+            }
             piece.draw();
         }
+        if let Some(index) = movable_piece {
+            pieces[index].draw();
+        }
+
+        draw_rectangle(0.0, 0.0, top_left_pos.x - circle_radius * 2.0, screen_height(), Color::from_hex(0x1c1c1c));
+        draw_rectangle(screen_width() - (top_left_pos.x - circle_radius * 2.0), 0.0, top_left_pos.x - circle_radius * 2.0, screen_height(), Color::from_hex(0x1c1c1c));
+        draw_rectangle(0.0, 0.0, screen_width(), top_left_pos.y - circle_radius * 2.0, Color::from_hex(0x1c1c1c));
+        draw_rectangle(0.0, top_left_pos.y + circle_radius * 2.0 * 6.0, screen_width(), screen_height() - (top_left_pos.y + circle_radius * 2.0 * 6.0), Color::from_hex(0x1c1c1c));
 
         for (i, icon) in piece_icons.iter().enumerate() {
             icon.draw(&pieces[i]);
@@ -88,6 +124,11 @@ async fn main() {
                 pieces[index].rotate(false);
             }
         }
+        if is_key_pressed(KeyCode::E) {
+            if let Some(index) = movable_piece {
+                pieces[index].flip();
+            }
+        }
         if is_key_pressed(KeyCode::Space) {
             if let Some(index) = movable_piece {
                 match pieces[index].lock(&mut spaces) {
@@ -102,10 +143,15 @@ async fn main() {
                     cursor.set_pos(pieces[index].get_pos());
                 }
             }
+
+            if check_complete(&spaces) {
+                println!("Puzzle complete!");
+            }
         }
         if  is_key_pressed(KeyCode::Escape) {
             if let Some(index) = movable_piece {
                 pieces[index].deselect();
+                pieces[index].reset_rotation_and_flipping();
                 piece_icons[index].deselect();
             }
             movable_piece = None;

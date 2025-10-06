@@ -5,38 +5,38 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         AppState {
-            current_scene: Scene::MainMenu(MainMenu::new()),
+            current_scene: Scene::MainMenu(MainMenu::new().await),
         }
     }
 
-    pub fn update(&mut self) {
+    pub async fn update(&mut self) {
         if self.current_scene.update() {
-            self.current_scene = self.current_scene.next_scene();
+            self.current_scene = self.current_scene.next_scene().await;
         }
     }
 }
 
 enum Scene {
     MainMenu(MainMenu),
-    Settings(Settings),
+    LevelSelect(LevelSelect),
     Game(Game)
 }
 
 impl Scene {
-    fn next_scene(&self) -> Self {
+    async fn next_scene(&self) -> Self {
         match self {
-            Scene::MainMenu(_) => Scene::Settings(Settings::new()),
-            Scene::Settings(_) => Scene::Game(Game::new()),
-            Scene::Game(_) => Scene::MainMenu(MainMenu::new()),
+            Scene::MainMenu(_) => Scene::LevelSelect(LevelSelect::new()),
+            Scene::LevelSelect(_) => Scene::Game(Game::new()),
+            Scene::Game(_) => Scene::MainMenu(MainMenu::new().await),
         }
     }
     
     fn update(&mut self) -> bool {
         match self {
             Scene::MainMenu(main_menu) => {main_menu.update(); main_menu.is_next_scene()},
-            Scene::Settings(settings) => {settings.update(); settings.is_next_scene()},
+            Scene::LevelSelect(settings) => {settings.update(); settings.is_next_scene()},
             Scene::Game(game) => {game.update(); game.is_next_scene()},
         }
     }
@@ -48,20 +48,43 @@ trait SceneBehavior {
 }
 
 struct MainMenu {
+    image_texture: Texture2D,
+    selection: usize,
 }
 
 impl MainMenu {
-    fn new() -> Self {
-        MainMenu {}
+    async fn new() -> Self {
+        MainMenu {
+            image_texture: load_texture("title.png").await.unwrap(),
+            selection: 0,
+        }
     }
 }
 
 impl SceneBehavior for MainMenu {
     fn update(&mut self) {
         clear_background(BLACK);
-        let text = "Main Menu. Press space to continue";
-        let text_dimensions = measure_text(text, None, 30, 1.0);
-        draw_text(text, screen_width() / 2.0 - text_dimensions.width / 2.0, screen_height() / 2.0 - text_dimensions.height / 2.0, 30.0, WHITE);
+        draw_texture(&self.image_texture, 0.0, 0.0, WHITE);
+        let difficulty_text = "Select difficulty:";
+        let text_dimensions = measure_text(&difficulty_text, None, 40, 1.0);
+        draw_text(&difficulty_text, screen_width() / 2.0 - text_dimensions.width / 2.0, 230.0, 40.0, WHITE);
+        for (i, level) in ["Starter", "Junior", "Expert", "Master", "Wizard"].iter().enumerate() {
+            let level_text = if i == self.selection { format!("> {}", level) } else { format!("{}", level) };
+            let text_dimensions = measure_text(&level_text, None, 30, 1.0);
+            draw_text(&level_text, screen_width() / 2.0 - text_dimensions.width / 2.0, 300.0 + (i as f32 * 50.0), 30.0, WHITE);
+        }
+
+        if is_key_pressed(KeyCode::Down) {
+            self.selection += 1;
+            self.selection %= 5;
+        }
+        if is_key_pressed(KeyCode::Up) {
+            if self.selection == 0 {
+                self.selection = 5;
+            }
+            self.selection -= 1;
+
+        }
     }
 
     fn is_next_scene(&self) -> bool {
@@ -69,21 +92,61 @@ impl SceneBehavior for MainMenu {
     }
 }
 
-struct Settings {
+struct LevelSelect {
+    icon_size: f32,
+    num_levels: usize,
+    selected_level: usize,
 }
 
-impl Settings {
+impl LevelSelect {
     fn new() -> Self {
-        Settings {}
+        LevelSelect {
+            icon_size: 100.0,
+            num_levels: 10,
+            selected_level: 0,
+        }
+    }
+
+    fn draw_levels(&self) {
+        for i in 0..self.num_levels {
+            let x = (i as f32 % 4.0) * (self.icon_size + 10.0) + (screen_width() - 4.0 * (self.icon_size + 10.0)) / 2.0;
+            let y = (i as f32 / 4.0).floor() * (self.icon_size + 10.0) + 200.0;
+            draw_rectangle(x, y, self.icon_size, self.icon_size, if i == self.selected_level { Color::from_hex(0xa1a1a1) } else { Color::from_hex(0x3b3b3b) });
+            let level_text = format!("{}", i + 1);
+            let text_dimensions = measure_text(&level_text, None, 40, 1.0);
+            draw_text(&level_text, x + self.icon_size / 2.0 - text_dimensions.width / 2.0, y + self.icon_size / 2.0 + text_dimensions.height / 2.0, 40.0, if i == self.selected_level { BLACK } else { WHITE });
+        }
     }
 }
 
-impl SceneBehavior for Settings {
+impl SceneBehavior for LevelSelect {
     fn update(&mut self) {
         clear_background(BLACK);
-        let text = "Settings. Press space to continue";
-        let text_dimensions = measure_text(text, None, 30, 1.0);
-        draw_text(text, screen_width() / 2.0 - text_dimensions.width / 2.0, screen_height() / 2.0 - text_dimensions.height / 2.0, 30.0, WHITE);
+        let level_text = format!("Choose a level:");
+        let text_dimensions = measure_text(&level_text, None, 40, 1.0);
+        draw_text(&level_text, screen_width() / 2.0 - text_dimensions.width / 2.0, 150.0, 40.0, WHITE);
+        self.draw_levels();
+
+        if is_key_pressed(KeyCode::Right) {
+            if (self.selected_level + 1) % 4 != 0 && self.selected_level + 1 < self.num_levels {
+                self.selected_level += 1;
+            }
+        }
+        if is_key_pressed(KeyCode::Left) {
+            if self.selected_level as i32 % 4 != 0 && self.selected_level - 1 < self.num_levels {
+                self.selected_level -= 1;
+            }
+        }
+        if is_key_pressed(KeyCode::Down) {
+            if self.selected_level + 4 < self.num_levels {
+                self.selected_level += 4;
+            }
+        }
+        if is_key_pressed(KeyCode::Up) {
+            if self.selected_level >= 4 && self.selected_level - 4 < self.num_levels {
+                self.selected_level -= 4;
+            }
+        }
     }
 
     fn is_next_scene(&self) -> bool {

@@ -14,10 +14,10 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut app_state = game::AppState::new();
+    let mut app_state = game::AppState::new().await;
 
     loop {
-        app_state.update();
+        app_state.update().await;
         next_frame().await;
     }
 }

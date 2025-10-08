@@ -1,3 +1,4 @@
+use polyomino::levels;
 use macroquad::prelude::*;
 
 pub struct AppState {
@@ -27,8 +28,8 @@ enum Scene {
 impl Scene {
     async fn next_scene(&self) -> Self {
         match self {
-            Scene::MainMenu(_) => Scene::LevelSelect(LevelSelect::new()),
-            Scene::LevelSelect(_) => Scene::Game(Game::new()),
+            Scene::MainMenu(main_menu) => Scene::LevelSelect(LevelSelect::new(main_menu.get_selection())),
+            Scene::LevelSelect(level_select) => Scene::Game(Game::new(level_select.get_selected_difficulty(), level_select.get_selected_level())),
             Scene::Game(_) => Scene::MainMenu(MainMenu::new().await),
         }
     }
@@ -58,6 +59,10 @@ impl MainMenu {
             image_texture: load_texture("title.png").await.unwrap(),
             selection: 0,
         }
+    }
+
+    fn get_selection(&self) -> usize {
+        self.selection
     }
 }
 
@@ -95,14 +100,16 @@ impl SceneBehavior for MainMenu {
 struct LevelSelect {
     icon_size: f32,
     num_levels: usize,
+    selected_difficulty: usize,
     selected_level: usize,
 }
 
 impl LevelSelect {
-    fn new() -> Self {
+    fn new(selected_difficulty: usize) -> Self {
         LevelSelect {
             icon_size: 100.0,
-            num_levels: 10,
+            num_levels: levels::LEVELS[selected_difficulty].len(),
+            selected_difficulty,
             selected_level: 0,
         }
     }
@@ -116,6 +123,14 @@ impl LevelSelect {
             let text_dimensions = measure_text(&level_text, None, 40, 1.0);
             draw_text(&level_text, x + self.icon_size / 2.0 - text_dimensions.width / 2.0, y + self.icon_size / 2.0 + text_dimensions.height / 2.0, 40.0, if i == self.selected_level { BLACK } else { WHITE });
         }
+    }
+
+    fn get_selected_level(&self) -> usize {
+        self.selected_level
+    }
+
+    fn get_selected_difficulty(&self) -> usize {
+        self.selected_difficulty
     }
 }
 
@@ -166,7 +181,7 @@ struct Game {
 }
 
 impl Game {
-    fn new() -> Self {
+    fn new(selected_difficulty: usize, selected_level: usize) -> Self {
         let circle_radius = 20.0;
         let board_size = Vec2::new((polyomino::BOARD_DIMENSIONS[0]) as f32 * circle_radius * 2.0, (polyomino::BOARD_DIMENSIONS[1]) as f32 * circle_radius * 2.0);
         let top_left_pos = Vec2::new(screen_width() / 2.0 - board_size.x / 2.0, screen_height() / 2.0 - board_size.y / 2.0 - 100.0);
@@ -201,7 +216,11 @@ impl Game {
         for icon in &piece_icons {
             icon.setup_texture();
         }
-        let spaces: [[Option<usize>; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize] = [[None; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize];
+        let mut spaces: [[Option<usize>; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize] = [[None; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize];
+        for filled_space in levels::LEVELS[selected_difficulty][selected_level] {
+            spaces[filled_space.0 .1 as usize][filled_space.0 .0 as usize] = Some(usize::MAX);
+        }        
+        
         let movable_piece: Option<usize> = None;
         if let Some(index) = movable_piece {
             cursor.set_pos(pieces[index].get_pos());
@@ -309,10 +328,12 @@ impl SceneBehavior for Game {
                 };
             } else if self.movable_piece == None {
                 if let Some(index) = self.spaces[self.cursor.get_pos()[1] as usize][self.cursor.get_pos()[0] as usize] {
-                    self.movable_piece = Some(index);
-                    self.pieces[index].unlock(&mut self.spaces);
-                    self.piece_icons[index].select();
-                    self.cursor.set_pos(self.pieces[index].get_pos());
+                    if index != usize::MAX {
+                        self.movable_piece = Some(index);
+                        self.pieces[index].unlock(&mut self.spaces);
+                        self.piece_icons[index].select();
+                        self.cursor.set_pos(self.pieces[index].get_pos());
+                    }
                 }
             }
 

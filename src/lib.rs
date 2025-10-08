@@ -1,3 +1,4 @@
+pub mod levels;
 use macroquad::prelude::*;
 
 pub const BOARD_DIMENSIONS: [u32; 2] = [11, 5];

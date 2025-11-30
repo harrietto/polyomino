@@ -318,10 +318,16 @@ impl Cursor {
     }
 }
 
-pub fn draw_circle_grid(x: f32, y: f32, rows: u32, cols: u32, circle_radius: f32, colour: macroquad::color::Color) {
+pub fn draw_circle_grid(x: f32, y: f32, rows: u32, cols: u32, circle_radius: f32, grid_colour: macroquad::color::Color, selected_difficulty: usize, selected_level: usize) {
     for i in 0..cols {
         for j in 0..rows {
-            draw_circle(x + (i as f32 + 0.5) * circle_radius * 2.0, y + (j as f32 + 0.5) * circle_radius * 2.0, circle_radius, colour);
+            let circle_colour;
+            if let Some(fixed_circle) = levels::LEVELS[selected_difficulty][selected_level].iter().find(|entry| entry.0.0 == i && entry.0.1 == j) {
+                circle_colour = Color::from_hex(fixed_circle.1);
+            } else {
+                circle_colour = grid_colour;
+            }
+            draw_circle(x + (i as f32 + 0.5) * circle_radius * 2.0, y + (j as f32 + 0.5) * circle_radius * 2.0, circle_radius, circle_colour);
         }
     }
 }

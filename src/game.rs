@@ -178,6 +178,8 @@ struct Game {
     spaces: [[Option<usize>; polyomino::BOARD_DIMENSIONS[0] as usize]; polyomino::BOARD_DIMENSIONS[1] as usize],
     movable_piece: Option<usize>,
     is_next_scene: bool,
+    selected_difficulty: usize,
+    selected_level: usize,
 }
 
 impl Game {
@@ -189,18 +191,18 @@ impl Game {
         let mut cursor = polyomino::Cursor::new([0, 0], circle_radius, top_left_pos);
         
         let mut pieces = [
-            polyomino::Piece::new(0, vec![[0, 1], [1, 1], [2, 1], [0, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x7c8ee6)),
-            polyomino::Piece::new(1, vec![[1, 1], [2, 1], [0, 0], [1, 0]], [1, 0], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf26a66)),
-            polyomino::Piece::new(2, vec![[0, 1], [1, 1], [2, 1], [0, 0], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x72d6ae)),
-            polyomino::Piece::new(3, vec![[0, 2], [1, 2], [2, 2], [0, 1], [0, 0]], [0, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x36a7e3)),
-            polyomino::Piece::new(4, vec![[0, 1], [1, 1], [2, 1], [0, 0], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa8d162)),
-            polyomino::Piece::new(5, vec![[1, 2], [0, 1], [1, 1], [2, 1], [2, 1], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xed9c51)),
-            polyomino::Piece::new(6, vec![[0, 3], [0, 2], [0, 1], [1, 1], [1, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xe3a3c5)),
-            polyomino::Piece::new(7, vec![[0, 2], [1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x369c6f)),
-            polyomino::Piece::new(8, vec![[1, 3], [1, 2], [0, 1], [1, 1], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf2cf4e)),
-            polyomino::Piece::new(9, vec![[1, 2], [2, 2], [0, 1], [1, 1], [0, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa477d1)),
-            polyomino::Piece::new(10, vec![[1, 3], [2, 3], [1, 2], [1, 1], [1, 0]], [1, 3], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xb33d3d)),
-            polyomino::Piece::new(11, vec![[1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x75ccd1)),
+            polyomino::Piece::new(0, vec![[0, 1], [1, 1], [2, 1], [0, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x7c8ee6)), // Dark Blue
+            polyomino::Piece::new(1, vec![[1, 1], [2, 1], [0, 0], [1, 0]], [1, 0], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf26a66)), // Red
+            polyomino::Piece::new(2, vec![[0, 1], [1, 1], [2, 1], [0, 0], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x72d6ae)), // Cyan
+            polyomino::Piece::new(3, vec![[0, 2], [1, 2], [2, 2], [0, 1], [0, 0]], [0, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x36a7e3)), // Blue
+            polyomino::Piece::new(4, vec![[0, 1], [1, 1], [2, 1], [0, 0], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa8d162)), // Light Green
+            polyomino::Piece::new(5, vec![[1, 2], [0, 1], [1, 1], [2, 1], [2, 1], [2, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xed9c51)), // Orange
+            polyomino::Piece::new(6, vec![[0, 3], [0, 2], [0, 1], [1, 1], [1, 0]], [0, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xe3a3c5)), // Pink
+            polyomino::Piece::new(7, vec![[0, 2], [1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x369c6f)), // Dark Green
+            polyomino::Piece::new(8, vec![[1, 3], [1, 2], [0, 1], [1, 1], [1, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xf2cf4e)), // Yellow
+            polyomino::Piece::new(9, vec![[1, 2], [2, 2], [0, 1], [1, 1], [0, 0]], [1, 1], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xa477d1)), // Purple
+            polyomino::Piece::new(10, vec![[1, 3], [2, 3], [1, 2], [1, 1], [1, 0]], [1, 3], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0xb33d3d)), // Dark Red
+            polyomino::Piece::new(11, vec![[1, 2], [2, 2], [1, 1]], [1, 2], circle_radius, top_left_pos, macroquad::color::Color::from_hex(0x75ccd1)), // Light Blue
         ];
 
         for piece in &mut pieces {
@@ -235,6 +237,8 @@ impl Game {
             spaces,
             movable_piece,
             is_next_scene: false,
+            selected_difficulty,
+            selected_level,
         }
     }
     
@@ -258,7 +262,7 @@ impl SceneBehavior for Game {
     fn update(&mut self) {
         clear_background(BLACK);
 
-        polyomino::draw_circle_grid(self.top_left_pos.x, self.top_left_pos.y, polyomino::BOARD_DIMENSIONS[1], polyomino::BOARD_DIMENSIONS[0], self.circle_radius, Color::from_hex(0x2b2b2b));
+        polyomino::draw_circle_grid(self.top_left_pos.x, self.top_left_pos.y, polyomino::BOARD_DIMENSIONS[1], polyomino::BOARD_DIMENSIONS[0], self.circle_radius, Color::from_hex(0x2b2b2b), self.selected_difficulty, self.selected_level);
 
         for (i, piece) in self.pieces.iter().enumerate() {
             if Some(i) == self.movable_piece {
